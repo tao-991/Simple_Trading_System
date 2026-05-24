@@ -5,6 +5,7 @@ import com.trading.common.TimeInForce;
 import com.trading.common.OrderType;
 import com.trading.common.OrderSide;
 import com.trading.model.Order;
+import com.trading.oms.OrderStore;
 
 
 public class Main {
@@ -99,7 +100,7 @@ public class Main {
                 TimeInForce.IOC
         );
 
-        System.out.println("Third order created (larget market order):");
+        System.out.println("Third order created (large market order):");
         System.out.println(order3);
         System.out.println();
 
@@ -158,6 +159,65 @@ public class Main {
                 TimeInForce.GTC
         );
         System.out.println("Market order created successfully: " + marketOrder);
+
+        System.out.println();
+        System.out.println();
+        System.out.println("=== OMS OrderStore Demo ===\n");
+
+        OrderStore store = new OrderStore();
+
+        // ── Create several orders ──
+        Order o1 = new Order("ORD-001", "C-001", "ACC-001", "AAPL",
+                OrderSide.BUY, OrderType.LIMIT, 100, 150.00, TimeInForce.GTC);
+
+        Order o2 = new Order("ORD-002", "C-002", "ACC-001", "TSLA",
+                OrderSide.SELL, OrderType.LIMIT, 200, 250.00, TimeInForce.GTC);
+
+        Order o3 = new Order("ORD-003", "C-003", "ACC-002", "AAPL",
+                OrderSide.BUY, OrderType.MARKET, 50, 0, TimeInForce.IOC);
+
+        store.add(o1);
+        store.add(o2);
+        store.add(o3);
+
+        System.out.println("Active orders after creation: " + store.activeOrderCount());
+        System.out.println("Archived orders: " + store.archivedOrderCount());
+        System.out.println();
+
+        // --- fully fill o3 -> archive it ---
+        System.out.println("Filling ORD-003 completely:");
+        o3.applyFill(50, 149.50);
+        store.archive("ORD-003");
+        System.out.println(o3);
+        System.out.println();
+
+        // --- Cancel o2 -> archive it ---
+        System.out.println("Cancelling ORD-002:");
+        o2.cancel();
+        store.archive("ORD-002");
+        System.out.println(o2);
+        System.out.println();
+
+        // --- Check store state ---
+        System.out.println("Active orders remaining: " + store.archivedOrderCount());
+        store.findActiveByAccount("ACC-001").forEach(System.out::println);
+        System.out.println();
+
+        System.out.println("Archived orders: " + store.archivedOrderCount());
+        store.findArchivedByAccount("ACC-001").forEach(System.out::println);
+
+        // --- Cross-store lookup ---
+        System.out.println("findAnyById for ORD-003 (archived)");
+        System.out.println(store.findAnyById("ORD-003"));
+        System.out.println();
+
+        // --- Try to archive an active order -> should throw ---
+        System.out.println("Trying to archive an active order:");
+        try {
+            store.archive("ORD-001");
+        } catch (IllegalStateException e) {
+            System.out.println("Caught expected error: " + e.getMessage());
+        }
 
 
     }

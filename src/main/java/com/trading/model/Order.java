@@ -145,9 +145,12 @@ public class Order {
     // --- For debugging and logging ---
     @Override
     public String toString() {
+
+        String priceDisplay = (orderType == OrderType.MARKET) ? String.format("MKT(avg=%.2f)", avgFillPrice) : String.format("@%.2f", limitPrice);
+
         return String.format(
-                "[Order %s | %s %s %d@%.2f | Status: %s | Filled: %d | Leaves: %d | AvgPrice: %.2f]",
-                orderId, side, symbol, quantity, limitPrice,
+                "[Order %s | %s %s %d%s | Status: %s | Filled: %d | Leaves: %d | AvgPrice: %.2f]",
+                orderId, side, symbol, quantity, priceDisplay,
                 status, filledQty, leavesQty, avgFillPrice
         );
     }
