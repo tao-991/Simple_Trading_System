@@ -4,8 +4,9 @@ import com.trading.common.OrderSide;
 import com.trading.common.OrderType;
 import com.trading.common.TimeInForce;
 import com.trading.model.Order;
+import com.trading.oms.OrderManager;
+import com.trading.oms.OrderStore;
 
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class EngineDemo {
@@ -14,40 +15,66 @@ public class EngineDemo {
 
     public static void main(String[] args) throws InterruptedException {
 
-        // tradeHandler: called on the symbol's matching thread after each match
-        MatchingEngine engine = new MatchingEngine(trades -> {
-            trades.forEach(t ->
-                    System.out.printf("[TradeHandler] %s%n", t));
-        });
+        // ── Wire up the system ──
+        OrderStore   orderStore   = new OrderStore();
+        OrderManager orderManager = new OrderManager(orderStore);
+
+        // MatchingEngine's tradeHandler now calls OrderManager instead of just printing
+        MatchingEngine engine = new MatchingEngine(
+                trades -> orderManager.onTrades(trades)
+        );
 
         engine.registerSymbol("AAPL");
-        engine.registerSymbol("TSLA");
 
-        // ── Scenario: AAPL and TSLA orders submitted concurrently ──
-        // CountDownLatch lets us wait until all matching is done before printing results
-        CountDownLatch latch = new CountDownLatch(1);
+        // ── Submit orders: first register them in OMS, then send to engine ──
 
-        // AAPL: rest a sell, then send a matching buy
-        engine.submitOrder(limit("AAPL", OrderSide.SELL, 150.15, 300));
-        engine.submitOrder(limit("AAPL", OrderSide.SELL, 150.20, 500));
+        // Resting sell orders
+        Order sell1 = limit("AAPL", OrderSide.SELL, 150.15, 300);
+        Order sell2 = limit("AAPL", OrderSide.SELL, 150.20, 500);
+        orderStore.add(sell1);
+        orderStore.add(sell2);
+        engine.submitOrder(sell1);
+        engine.submitOrder(sell2);
 
-        // TSLA: concurrent, different thread - won't interfere with AAPL
-        engine.submitOrder(limit("TSLA", OrderSide.SELL, 800.00, 100));
-        engine.submitOrder(limit("TSLA", OrderSide.BUY,  800.00, 100));  // should match
+        // Incoming buy: should cross both levels
+        Order buy1 = limit("AAPL", OrderSide.BUY, 150.20, 400);
+        orderStore.add(buy1);
+        engine.submitOrder(buy1);
 
-        // AAPL: incoming buy crosses two levels
-        engine.submitOrder(limit("AAPL", OrderSide.BUY,  150.20, 400));
+        // Wait for matching threads to finish
+        Thread.sleep(300);
 
-        // Give matching threads time to process before we read results
-        Thread.sleep(200);
+        // ── Print final state ──
+        System.out.println("\n══════════════════════════════════");
+        System.out.println("Final Order States:");
+        System.out.println("══════════════════════════════════");
 
-        System.out.println("\n── Final Book State ──");
-        System.out.printf("AAPL Best Bid: %.2f  Best Ask: %.2f%n",
-                engine.getBestBid("AAPL"), engine.getBestAsk("AAPL"));
-        System.out.printf("TSLA Best Bid: %.2f  Best Ask: %.2f%n",
-                engine.getBestBid("TSLA"), engine.getBestAsk("TSLA"));
+        // buy1 should be FILLED (400 = 300 + 100)
+        printOrder("buy1",  orderStore.findAnyById(buy1.getOrderId()));
+
+        // sell1 should be FILLED (300 fully consumed)
+        printOrder("sell1", orderStore.findAnyById(sell1.getOrderId()));
+
+        // sell2 should be PARTIALLY_FILLED (500 - 100 = 400 remaining)
+        printOrder("sell2", orderStore.findAnyById(sell2.getOrderId()));
+
+        System.out.println("\nActive orders:   " + orderStore.activeOrderCount());
+        System.out.println("Archived orders: " + orderStore.archivedOrderCount());
 
         engine.shutdown();
+    }
+
+    private static void printOrder(String label, Order order) {
+        if (order == null) {
+            System.out.println(label + ": NOT FOUND");
+            return;
+        }
+        System.out.printf("%s: status=%-18s filled=%d leaves=%d avgPx=%.4f%n",
+                label,
+                order.getStatus(),
+                order.getFilledQty(),
+                order.getLeavesQty(),
+                order.getAvgFillPrice());
     }
 
     private static Order limit(String symbol, OrderSide side, double price, long qty) {

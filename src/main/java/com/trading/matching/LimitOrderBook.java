@@ -65,8 +65,11 @@ public class LimitOrderBook {
         TreeMap<Long, PriceLevel> oppositeBook =
                 incoming.getSide() == OrderSide.BUY ? asks : bids;
 
+        // Track remaining qty locally - OrderManager will call applyFill() later
+        long incomingRemaing = incoming.getLeavesQty();
+
         // -- Main matching loop --
-        while (incoming.getLeavesQty() > 0 && !oppositeBook.isEmpty()) {
+        while (incomingRemaing > 0 && !oppositeBook.isEmpty()) {
 
             // Best price on the opposite side (ask: lowest price; bid: highest price)
             Map.Entry<Long, PriceLevel> bestEntry = oppositeBook.firstEntry();
@@ -87,8 +90,11 @@ public class LimitOrderBook {
                 continue;
             }
 
+            long restingRemaining = resting.getLeavesQty();
+
+
             // -- Calcualte matched quantity --
-            long matchQty = Math.min(incoming.getLeavesQty(), resting.getLeavesQty());
+            long matchQty = Math.min(incomingRemaing, restingRemaining);
 
             // Trade price is always the resting order's price (price maker wins)
             double tradePrice = resting.getLimitPrice();
@@ -97,12 +103,15 @@ public class LimitOrderBook {
             Trade trade = new Trade(incoming.getOrderId(), resting.getOrderId(), symbol, matchQty, tradePrice);
             trades.add(trade);
 
-            // -- Apply fill to BOTH orders --
-            incoming.applyFill(matchQty, tradePrice);
-            resting.applyFill(matchQty, tradePrice);
+//            // -- Apply fill to BOTH orders --
+//            incoming.applyFill(matchQty, tradePrice);
+//            resting.applyFill(matchQty, tradePrice);
+            // Update book structure only
+            incomingRemaing -= matchQty;
+            long restingLeft = restingRemaining - matchQty;
 
             // -- Update PriceLevel and book structure --
-            if (resting.getLeavesQty() == 0) {
+            if (restingLeft == 0) {
                 // resting order fully filled: remove it from queue and index
                 level.pollFirst();
                 ordersById.remove(resting.getOrderId());
@@ -119,7 +128,7 @@ public class LimitOrderBook {
         }
 
         // --- Determine disposition and handle remainder --
-        return buildResult(incoming, trades);
+        return buildResult(incoming, trades, incomingRemaing);
     }
 
     /**
@@ -146,30 +155,23 @@ public class LimitOrderBook {
      * Build the MatchResult based on the outcome of the matching loop.
      * Also handles resting the remaining qty for limit orders.
      * **/
-    private MatchResult buildResult(Order incoming, List<Trade> trades){
-        long remainingQty = incoming.getLeavesQty();
-
-        if (remainingQty == 0) {
-            // Fully matched
+    private MatchResult buildResult(Order incoming, List<Trade> trades, long incomingRemaining) {
+        if (incomingRemaining == 0) {
             return new MatchResult(trades, MatchResult.Disposition.FILLED, 0);
         }
 
         if (incoming.getOrderType() == OrderType.MARKET) {
-            // Market order cannot rest - reject remainder
-            // (In production: send back ExecutionReprt with Cx1RejReason)
-            return new MatchResult(trades, MatchResult.Disposition.REJECTED, remainingQty);
+            return new MatchResult(trades, MatchResult.Disposition.REJECTED, incomingRemaining);
         }
 
-        // Limit order: rest the remaining qty in the book
+        // Limit order: rest the remainder in the book
         addOrder(incoming);
 
         if (trades.isEmpty()) {
-            return new MatchResult(trades, MatchResult.Disposition.RESTED, remainingQty);
+            return new MatchResult(trades, MatchResult.Disposition.RESTED, incomingRemaining);
         } else {
-            return new MatchResult(trades, MatchResult.Disposition.PARTIALLY_FILLED, remainingQty);
+            return new MatchResult(trades, MatchResult.Disposition.PARTIALLY_FILLED, incomingRemaining);
         }
-
-
     }
 
     /**
