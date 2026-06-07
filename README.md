@@ -1,11 +1,21 @@
 # Simple Trading System
 
+![Java](https://img.shields.io/badge/Java-17-orange?style=flat-square)
+![Maven](https://img.shields.io/badge/Build-Maven-blue?style=flat-square)
+![Status](https://img.shields.io/badge/Status-In_Progress-yellow?style=flat-square)
+
 A production-quality algorithmic trading system built in Java for self-learning,
 modelled after Goldman Sachs Equities Desk Technology standards.
 
+> [!IMPORTANT]
+> Built as interview preparation for Trading IT roles at investment banks.
+> Each module mirrors real systems used at firms like Goldman Sachs.
+
+---
+
 ## Modules completed
 
-### Module 3 — Order Management System (OMS)
+### ✅ Module 3 — Order Management System (OMS)
 Full order lifecycle management with thread-safe state transitions.
 
 - `Order` — immutable identity fields, volatile mutable state, business methods
@@ -14,7 +24,7 @@ Full order lifecycle management with thread-safe state transitions.
   `remove(key, value)` to prevent race conditions on archival
 - Enums: `OrderSide`, `OrderType`, `OrderStatus`, `TimeInForce`
 
-### Module 4 — Limit Order Book & Matching Engine
+### ✅ Module 4 — Limit Order Book & Matching Engine
 Price-Time Priority matching engine with Single Writer concurrency model.
 
 - `LimitOrderBook` — `TreeMap<Long, PriceLevel>` for bids (reverse order) and asks
@@ -25,6 +35,8 @@ Price-Time Priority matching engine with Single Writer concurrency model.
 - `Trade` / `MatchResult` — immutable output of each matching cycle
 - `OrderManager` — bridges matching engine and OMS; applies fills and archives
   completed orders
+
+---
 
 ## Architecture
 
@@ -48,22 +60,39 @@ Trader
               └─ OrderStore.archive()  ← if FILLED
 ```
 
+---
+
 ## Key design decisions
+
+> [!NOTE]
+> These decisions reflect production standards at investment banks.
+> Each one has a specific rationale worth knowing for interviews.
 
 | Decision | Rationale |
 |---|---|
 | Price as `long` ticks | Avoids floating-point precision errors in financial calculations |
-| Single Writer Principle | Per-symbol executor eliminates locks inside LimitOrderBook |
+| Single Writer Principle | Per-symbol executor eliminates locks inside `LimitOrderBook` |
 | Trade price = resting order's price | Price maker wins; standard exchange behaviour |
 | Business methods over setters | `applyFill()`, `cancel()`, `reject()` enforce valid state transitions |
-| `match()` produces Trades only | OrderManager owns state updates; clean separation of concerns |
+| `match()` produces Trades only | `OrderManager` owns state updates; clean separation of concerns |
+
+---
 
 ## Tech stack
 
-- Java 17
-- Maven
-- *(Upcoming)* LMAX Disruptor, Apache Kafka, QuickFIX/J, Redis, PostgreSQL,
-  TimescaleDB, Prometheus/Grafana, Docker Compose
+| Layer | Technology |
+|---|---|
+| Core language | Java 17 |
+| Build | Maven |
+| High-performance queue | LMAX Disruptor *(upcoming)* |
+| Messaging | Apache Kafka *(upcoming)* |
+| FIX protocol | QuickFIX/J *(upcoming)* |
+| Cache | Redis *(upcoming)* |
+| Database | PostgreSQL + TimescaleDB *(upcoming)* |
+| Monitoring | Prometheus + Grafana *(upcoming)* |
+| Infrastructure | Docker Compose *(upcoming)* |
+
+---
 
 ## Roadmap
 
@@ -76,3 +105,7 @@ Trader
 - [ ] Module 7 — Kafka Message Bus
 - [ ] Module 8 — PnL Engine
 - [ ] Module 9 — Dashboard & Monitoring
+
+> [!WARNING]
+> Modules 1 and 2 are planned but not yet started.
+> Development follows core engine first, then external protocols.
