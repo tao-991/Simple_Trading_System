@@ -6,6 +6,7 @@ import com.trading.common.TimeInForce;
 import com.trading.model.Order;
 import com.trading.oms.OrderManager;
 import com.trading.oms.OrderStore;
+import com.trading.kafka.TradeEventProducer;
 
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -19,10 +20,15 @@ public class EngineDemo {
         OrderStore   orderStore   = new OrderStore();
         OrderManager orderManager = new OrderManager(orderStore);
 
+        // Create the Kafka producer. It lives for the whole program run
+        // (Created once, reused for every trade, closed once at the end).
+        TradeEventProducer tradeProducer = new TradeEventProducer();
+
         // MatchingEngine's tradeHandler now calls OrderManager instead of just printing
-        MatchingEngine engine = new MatchingEngine(
-                trades -> orderManager.onTrades(trades)
-        );
+        MatchingEngine engine = new MatchingEngine(trades -> {
+            orderManager.onTrades(trades);
+            tradeProducer.publishTrades(trades);
+        });
 
         engine.registerSymbol("AAPL");
 
@@ -62,6 +68,7 @@ public class EngineDemo {
         System.out.println("Archived orders: " + orderStore.archivedOrderCount());
 
         engine.shutdown();
+        tradeProducer.close();
     }
 
     private static void printOrder(String label, Order order) {

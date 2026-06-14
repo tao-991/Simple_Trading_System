@@ -77,7 +77,7 @@ public class TradeEventProducer implements AutoCloseable{
     }
 
     @Override
-    public void close() throws Exception {
+    public void close() {
         // flush() blocks until all buffered messages are sent.
         // Always call this before shutdown - otherwise buffered trades are lost.
         producer.flush();

@@ -55,7 +55,7 @@ public class KafkaConfig {
         props.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
 
         // How long to wait before giving up on a send (10 seconds)
-        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 10_000);
+//        props.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 10_000);
 
         return props;
 
