@@ -1,5 +1,8 @@
 package com.trading.matching;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Represents a single matched trade between two orders.
  *
@@ -35,6 +38,35 @@ public class Trade {
         this.tradeTime = System.nanoTime();
     }
 
+    /**
+     * Full constructor used ONLY by Jackson for deserialization.
+     *
+     * Unlike the 5-arg constructor, this one accepts tradeId and tradeTime
+     * as parameters, so a Trade read back from Kafka keeps its ORIGINAL
+     * tradeId and timestamp instead of generating new ones.
+     *
+     * @JsonCreator tells Jackson: "use THIS constructor to rebuild the object"
+     * @JsonProperty maps each JSON field name to a constructor parameter
+     * */
+    @JsonCreator
+    public Trade(
+            @JsonProperty("tradeId") String tradeId,
+            @JsonProperty("incomingOrderId") String incomingOrderId,
+            @JsonProperty("restingOrderId") String restingOrderId,
+            @JsonProperty("symbol") String symbol,
+            @JsonProperty("matchedQty") long matchedQty,
+            @JsonProperty("tradePrice") double tradePrice,
+            @JsonProperty("tradeTime") long tradeTime
+    ){
+        this.tradeId = tradeId; // use the value from JSON
+        this.incomingOrderId = incomingOrderId;
+        this.restingOrderId = restingOrderId;
+        this.symbol = symbol;
+        this.matchedQty = matchedQty;
+        this.tradePrice = tradePrice;
+        this.tradeTime = tradeTime; // use the value from JSON
+    }
+
     public String getTradeId() { return tradeId;}
     public String getIncomingOrderId() {return incomingOrderId;}
     public String getRestingOrderId() {
@@ -42,7 +74,7 @@ public class Trade {
     }
     public String getSymbol() {return symbol;}
     public long getMatchedQty() {return matchedQty;}
-    public double getTradePrcie(){ return tradePrice;}
+    public double getTradePrice(){ return tradePrice;}
     public long getTradeTime() { return tradeTime;}
 
     @Override

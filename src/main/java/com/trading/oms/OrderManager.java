@@ -39,10 +39,10 @@ public class OrderManager {
 
     public void applyTrade(Trade trade) {
         // Apply fill to the incoming order
-        applyFillToOrder(trade.getIncomingOrderId(), trade.getMatchedQty(), trade.getTradePrcie());
+        applyFillToOrder(trade.getIncomingOrderId(), trade.getMatchedQty(), trade.getTradePrice());
 
         // Apply fill to the resting order
-        applyFillToOrder(trade.getRestingOrderId(), trade.getMatchedQty(), trade.getTradePrcie());
+        applyFillToOrder(trade.getRestingOrderId(), trade.getMatchedQty(), trade.getTradePrice());
 
         System.out.printf("[OrderManager] Trade applied: %s%n", trade);
     }
