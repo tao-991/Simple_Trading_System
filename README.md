@@ -36,6 +36,30 @@ Price-Time Priority matching engine with Single Writer concurrency model.
 - `OrderManager` — bridges matching engine and OMS; applies fills and archives
   completed orders
 
+### Module 7 — Kafka Message Bus
+Decouples the matching engine from downstream consumers via a persistent,
+replayable event log. The matching engine no longer calls consumers directly;
+it publishes to Kafka and any number of independent consumers subscribe.
+
+- `KafkaConfig` — central configuration: broker address, topic names,
+  producer/consumer properties
+- `TradeEventProducer` — publishes `Trade` events to the `executions` topic.
+  Keyed by `incomingOrderId` so all events for one order land in the same
+  partition (ordering guarantee). Configured with `acks=all` (no message loss)
+  and `enable.idempotence=true` (broker dedups retries via PID + sequence number)
+- `PositionConsumer` — standalone consumer that subscribes to `executions`,
+  deserializes trades, and maintains net position per symbol. Zero compile-time
+  dependency on the matching engine
+- Manual offset commit (`enable.auto.commit=false`, `commitSync` after each
+  batch) for at-least-once delivery
+- Idempotent consumption via a `tradeId` set: redelivered messages are skipped
+  before they affect position. In-memory for now; Redis-backed persistence
+  is the next step
+- `Trade` has a dedicated 7-arg `@JsonCreator` constructor so Jackson
+  reconstructs trades with their ORIGINAL `tradeId` and `tradeTime`
+  (round-trip consistency — essential for tradeId-based idempotency)
+- Single-broker Kafka in KRaft mode via Docker Compose
+
 ---
 
 ## Architecture
@@ -74,7 +98,9 @@ Trader
 | Single Writer Principle | Per-symbol executor eliminates locks inside `LimitOrderBook` |
 | Trade price = resting order's price | Price maker wins; standard exchange behaviour |
 | Business methods over setters | `applyFill()`, `cancel()`, `reject()` enforce valid state transitions |
-| `match()` produces Trades only | `OrderManager` owns state updates; clean separation of concerns |
+| `match()` produces Trades only | `OrderManager` owns state updates; clean separation of concerns || Kafka key = `incomingOrderId` | Same order's events route to one partition → ordering preserved |
+| At-least-once + tradeId idempotency | Never lose a trade; redelivered trades are deduped, not double-counted |
+| Two `Trade` constructors | 5-arg auto-generates `tradeId`/`tradeTime` (matching engine); 7-arg `@JsonCreator` preserves them (Kafka deserialization) |
 
 ---
 
@@ -85,12 +111,12 @@ Trader
 | Core language | Java 17 |
 | Build | Maven |
 | High-performance queue | LMAX Disruptor *(upcoming)* |
-| Messaging | Apache Kafka *(upcoming)* |
+| Messaging | Apache Kafka  |
 | FIX protocol | QuickFIX/J *(upcoming)* |
 | Cache | Redis *(upcoming)* |
 | Database | PostgreSQL + TimescaleDB *(upcoming)* |
 | Monitoring | Prometheus + Grafana *(upcoming)* |
-| Infrastructure | Docker Compose *(upcoming)* |
+| Infrastructure | Docker Compose  |
 
 ---
 
@@ -102,9 +128,10 @@ Trader
 - [x] Module 4 — Limit Order Book & Matching Engine
 - [ ] Module 5 — Risk Engine (Pre-trade, Greeks, VaR)
 - [ ] Module 6 — Position Manager
-- [ ] Module 7 — Kafka Message Bus
+- [x] Module 7 — Kafka Message Bus
 - [ ] Module 8 — PnL Engine
 - [ ] Module 9 — Dashboard & Monitoring
+- [ ] Module 10 — Execution Algorithms (TWAP, VWAP, POV, IS, Iceberg)
 
 > [!WARNING]
 > Modules 1 and 2 are planned but not yet started.
