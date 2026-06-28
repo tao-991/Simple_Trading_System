@@ -60,6 +60,19 @@ it publishes to Kafka and any number of independent consumers subscribe.
   (round-trip consistency — essential for tradeId-based idempotency)
 - Single-broker Kafka in KRaft mode via Docker Compose
 
+## Module 7.5 — Redis Position Store
+
+Real-time position cache backed by Redis Hash, consumed by the Risk Engine for sub-millisecond position lookups.
+
+**Design decisions:**
+- Redis Hash over String: allows independent field updates (netQty, avgCostPrice, realizedPnL) without read-modify-write overhead
+- JedisPool: pre-established connection pool for thread isolation — each service thread gets a dedicated connection
+- Write-through pattern: every fill writes to Redis (fast read layer) and PostgreSQL (source of truth)
+- Trade enriched with both-side account/side fields: PositionConsumer is fully self-contained, no OMS lookup required (event enrichment principle)
+
+**Key:** `Position:{accountId}:{symbol}`
+**Fields:** `netQty`, `avgCostPrice`, `realizedPnL`, `lastUpdated`
+
 ---
 
 ## Architecture

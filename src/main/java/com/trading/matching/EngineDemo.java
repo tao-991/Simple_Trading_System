@@ -86,7 +86,8 @@ public class EngineDemo {
 
     private static Order limit(String symbol, OrderSide side, double price, long qty) {
         String id = symbol + "-" + orderCounter.incrementAndGet();
-        return new Order(id, "CL-" + id, "ACC001", symbol,
+        String accountId = (side == OrderSide.SELL) ? "ACC002" : "ACC001";
+        return new Order(id, "CL-" + id, accountId, symbol,
                 side, OrderType.LIMIT, qty, price, TimeInForce.GTC);
     }
 }

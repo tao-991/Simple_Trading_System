@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import com.trading.redis.PositionStore;
 
 
 /**
@@ -42,11 +43,14 @@ public class PositionConsumer {
 
     private volatile boolean running = true;
 
+    private final PositionStore positionStore;
+
     public PositionConsumer(){
         // "position-manager-group" is this consumer's group id
         this.consumer = new KafkaConsumer<>(
                 KafkaConfig.consumerProps("position-manager-group")
         );
+        this.positionStore = new PositionStore("localhost",6379);
     }
 
     public void run(){
@@ -95,7 +99,10 @@ public class PositionConsumer {
             // Simplification: the incoming order's side decides direction,
             // but a Trade has two sides. For now we just track gross matched
             // quantity per symbol as a placeholder for real position logic.
-            positions.merge(trade.getSymbol(), trade.getMatchedQty(), Long::sum);
+//            positions.merge(trade.getSymbol(), trade.getMatchedQty(), Long::sum);
+
+            applyToPosition(trade.getIncomingAccountId(), trade.getIncomingSide(), trade);
+            applyToPosition(trade.getRestingAccountId(), trade.getRestingSide(), trade);
 
             log.debug("[PositionConsumer] Applied trade {} | {} qty={} @ {} | partition={} offset={}",
                     trade.getTradeId(),
@@ -105,13 +112,40 @@ public class PositionConsumer {
                     record.partition(),
                     record.offset());
 
-            log.info("[PositionConsumer] Position {} = {}",
-                    trade.getSymbol(), positions.get(trade.getSymbol()));
+//            log.info("[PositionConsumer] Position {} = {}",
+//                    trade.getSymbol(), positions.get(trade.getSymbol()));
         }catch (Exception e){
             // A poison message (bad JSON) should not kill the consumer.
             log.error("[PositionConsumer] Failed to process record at offset {}:{}",
                     record.offset(), e.getMessage());
         }
+    }
+
+    private void applyToPosition(String accountId, OrderSide side, Trade trade){
+        // Read current state from Redis
+        long oldNetQty = positionStore.getNetQty(accountId, trade.getSymbol());
+        double oldAvgCost = positionStore.getAvgCost(accountId, trade.getSymbol());
+        double realizedPnL = positionStore.getRealizedPnL(accountId, trade.getSymbol());
+
+        long newNetQty;
+        double newAvgCost;
+
+        if (side == OrderSide.BUY){
+            newNetQty = oldNetQty + trade.getMatchedQty();
+            // Weighted average cost: blend old position cost with new fill cost
+            newAvgCost = (oldAvgCost == 0) ? trade.getTradePrice() : (oldNetQty * oldAvgCost + trade.getMatchedQty() * trade.getTradePrice()) / (oldNetQty + trade.getMatchedQty());
+            // realizedPnL unchange on a buy
+        } else {
+            newNetQty = oldNetQty - trade.getMatchedQty();
+            newAvgCost = oldAvgCost; // cost basis unchanged when selling
+            realizedPnL += (trade.getTradePrice() - oldAvgCost) * trade.getMatchedQty();
+        }
+
+        positionStore.updatePosition(accountId, trade.getSymbol(), newNetQty, newAvgCost, realizedPnL);
+
+        log.info("[PositionConsumer] {} {} | netQty={} avgCost={} realizedPnL={}",
+                accountId, trade.getSymbol(), newNetQty, newAvgCost, realizedPnL);
+
     }
 
     public void stop(){

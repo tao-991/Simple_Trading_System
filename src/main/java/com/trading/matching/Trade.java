@@ -2,6 +2,7 @@ package com.trading.matching;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.trading.common.OrderSide;
 
 /**
  * Represents a single matched trade between two orders.
@@ -22,13 +23,19 @@ public class Trade {
     private final long matchedQty;
     private final double tradePrice; // always te resting order's limit price
     private final long tradeTime; // nanosecond timestamp
+    private final String incomingAccountId;
+    private final OrderSide incomingSide;
+    private final String restingAccountId;
+    private final OrderSide restingSide;
 
     // Simple counter for generating trade IDs in this demo.
     // Production systems use a distributed sequence generator.
     private static long tradeCounter = 0;
 
     public Trade(String incomingOrderId, String restingOrderId,
-                 String symbol, long matchedQty, double tradePrice){
+                 String symbol, long matchedQty, double tradePrice,
+                 String incomingAccountId, OrderSide incomingSide,
+                 String restingAccountId, OrderSide restingSide){
         this.tradeId = "T-" + (++tradeCounter);
         this.incomingOrderId = incomingOrderId;
         this.restingOrderId = restingOrderId;
@@ -36,6 +43,10 @@ public class Trade {
         this.matchedQty = matchedQty;
         this.tradePrice = tradePrice;
         this.tradeTime = System.nanoTime();
+        this.incomingAccountId = incomingAccountId;
+        this.incomingSide = incomingSide;
+        this.restingAccountId = restingAccountId;
+        this.restingSide = restingSide;
     }
 
     /**
@@ -56,7 +67,11 @@ public class Trade {
             @JsonProperty("symbol") String symbol,
             @JsonProperty("matchedQty") long matchedQty,
             @JsonProperty("tradePrice") double tradePrice,
-            @JsonProperty("tradeTime") long tradeTime
+            @JsonProperty("tradeTime") long tradeTime,
+            @JsonProperty("incomingAccountId") String incomingAccountId,
+            @JsonProperty("incomingSide") OrderSide incomingSide,
+            @JsonProperty("restingAccountId") String restingAccountId,
+            @JsonProperty("restingSide") OrderSide restingSide
     ){
         this.tradeId = tradeId; // use the value from JSON
         this.incomingOrderId = incomingOrderId;
@@ -65,6 +80,10 @@ public class Trade {
         this.matchedQty = matchedQty;
         this.tradePrice = tradePrice;
         this.tradeTime = tradeTime; // use the value from JSON
+        this.incomingAccountId = incomingAccountId;
+        this.incomingSide = incomingSide;
+        this.restingAccountId = restingAccountId;
+        this.restingSide = restingSide;
     }
 
     public String getTradeId() { return tradeId;}
@@ -76,6 +95,10 @@ public class Trade {
     public long getMatchedQty() {return matchedQty;}
     public double getTradePrice(){ return tradePrice;}
     public long getTradeTime() { return tradeTime;}
+    public String getIncomingAccountId() {return incomingAccountId;}
+    public OrderSide getIncomingSide() { return incomingSide;}
+    public String getRestingAccountId() { return restingAccountId;}
+    public OrderSide getRestingSide() { return restingSide;}
 
     @Override
     public String toString() {

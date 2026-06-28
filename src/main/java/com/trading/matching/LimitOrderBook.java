@@ -100,7 +100,7 @@ public class LimitOrderBook {
             double tradePrice = resting.getLimitPrice();
 
             // -- Generate trade record --
-            Trade trade = new Trade(incoming.getOrderId(), resting.getOrderId(), symbol, matchQty, tradePrice);
+            Trade trade = new Trade(incoming.getOrderId(), resting.getOrderId(), symbol, matchQty, tradePrice, incoming.getAccountId(), incoming.getSide(), resting.getAccountId(), resting.getSide());
             trades.add(trade);
 
 //            // -- Apply fill to BOTH orders --

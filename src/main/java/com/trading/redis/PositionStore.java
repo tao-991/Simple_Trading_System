@@ -49,6 +49,20 @@ public class PositionStore {
         }
     }
 
+    public double getAvgCost(String accountId, String symbol) {
+        try (Jedis jedis = pool.getResource()) {
+            String val = jedis.hget(key(accountId,symbol), "avgCostPrice");
+            return val == null ? 0.0 : Double.parseDouble(val);
+        }
+    }
+
+    public double getRealizedPnL(String accountId, String symbol) {
+        try (Jedis jedis = pool.getResource()) {
+            String val = jedis.hget(key(accountId,symbol), "realizedPnL");
+            return val == null ? 0.0 : Double.parseDouble(val);
+        }
+    }
+
     public void close(){
         pool.close();
     }

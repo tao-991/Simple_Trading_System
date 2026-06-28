@@ -1,5 +1,6 @@
 package com.trading.kafka;
 
+import com.trading.common.OrderSide;
 import com.trading.matching.Trade;
 
 import java.util.List;
@@ -23,7 +24,9 @@ public class ProducerSmokeTest {
                     "AAPL-2",    // restingOrderId
                     "AAPL",      // symbol
                     300,         // matchedQty
-                    150.15       // tradePrice
+                    150.15,       // tradePrice
+                    "ACC-001", OrderSide.BUY,
+                    "ACC-002", OrderSide.SELL
             );
 
             System.out.println("Publishing one fake trade to Kafka...");
