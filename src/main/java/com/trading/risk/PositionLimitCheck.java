@@ -18,7 +18,7 @@ import com.trading.redis.PositionStore;
  * The position read here can be stale by the time this order actually fills,
  * because other orders for the same account may be in flight concurrently.
  * A production system would "reserve" the exposure at accept-time rather
- * than just checking it. This check is check-then-act only.
+ * than just checking it. This check is check-then-act  only.
  *
  * */
 
